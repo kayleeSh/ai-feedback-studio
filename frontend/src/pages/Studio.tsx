@@ -1,0 +1,257 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { analyzeText } from '../api/client';
+import { Annotation, AnalysisResult, ContentType, StudioStatus } from '../types';
+import { AnnotatedText } from '../components/AnnotatedText';
+import { FeedbackPanel } from '../components/FeedbackPanel';
+import { SkeletonText } from '../components/SkeletonText';
+
+const CONTENT_TYPES: { value: ContentType; label: string; emoji: string; placeholder: string }[] = [
+  { value: 'email',        label: 'Email',         emoji: '✉️', placeholder: 'Paste your email draft here…' },
+  { value: 'product_copy', label: 'Product Copy',  emoji: '🚀', placeholder: 'Paste your product description, landing page copy, or marketing text here…' },
+  { value: 'resume',       label: 'Resume',        emoji: '📄', placeholder: 'Paste a section of your resume or cover letter here…' },
+  { value: 'ux_copy',      label: 'UX Copy',       emoji: '🖱️', placeholder: 'Paste your UI text, button labels, error messages, or onboarding copy here…' },
+  { value: 'essay',        label: 'Essay',         emoji: '📝', placeholder: 'Paste your essay, article, or long-form writing here…' },
+  { value: 'general',      label: 'General',       emoji: '💬', placeholder: 'Paste any text you want feedback on here…' },
+];
+
+const SAMPLE_TEXT: Record<ContentType, string> = {
+  email: `Hi there,
+
+I am writing to you in order to follow up on the meeting that we had last week regarding the project proposal. I wanted to touch base and get a status update.
+
+As per our previous discussion, I was under the impression that we would be moving forward with the initial phase. I would really appreciate it if you could provide me with some clarity on the timeline and next steps.
+
+Please do not hesitate to reach out to me if you have any questions or concerns. I look forward to hearing from you at your earliest convenience.
+
+Best regards`,
+
+  product_copy: `Our software solution is a comprehensive platform that enables businesses of all sizes to streamline their operations and improve their overall efficiency. Leveraging cutting-edge technology, our product has the ability to transform the way you work.
+
+Featuring an intuitive interface, robust analytics capabilities, and seamless integration with your existing tools, it is the perfect solution for teams that are looking to optimise their workflow. Get started today and experience the difference.`,
+
+  resume: `Results-driven professional with over 5 years of experience in the field of software development. Possess strong problem-solving skills and the ability to work well in a team environment. Have a proven track record of successfully delivering projects on time and within budget.
+
+Responsible for the development and maintenance of multiple web applications. Collaborated with cross-functional teams to ensure project requirements were met. Utilised various technologies to build scalable solutions.`,
+
+  ux_copy: `Welcome to the onboarding process! Please click on the button below in order to get started with the setup of your account. You will need to provide us with some information.
+
+Error: Something went wrong with your request. Please try again later. If the problem persists, contact our support team for assistance.
+
+Are you sure you want to delete this item? This action cannot be undone and the data will be permanently removed from our system.`,
+
+  essay: `The impact of technology on modern society has been a subject of much debate in recent years. Many people argue that technology has had a positive effect on our lives, while others believe that it has created new problems and challenges that we must address.
+
+In this essay, I will attempt to explore both sides of the argument and come to a conclusion about the overall impact of technology. It is important to note that this is a complex issue and there are no simple answers.`,
+
+  general: `I wanted to reach out to you because I think that there might be an opportunity for us to work together on something that could be mutually beneficial. I have been following your work for some time and I am very impressed with what you have been doing.
+
+I would love to set up a call at some point in the near future to discuss this further. Please let me know if you would be interested in having a conversation about this.`,
+};
+
+export default function Studio() {
+  const [contentType, setContentType] = useState<ContentType>('email');
+  const [inputText, setInputText]     = useState('');
+  const [status, setStatus]           = useState<StudioStatus>('idle');
+  const [result, setResult]           = useState<AnalysisResult | null>(null);
+  const [revealedCount, setRevealedCount]           = useState(0);
+  const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
+  const [error, setError]             = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const liveRef     = useRef<HTMLDivElement>(null);
+
+  const currentPlaceholder = CONTENT_TYPES.find(t => t.value === contentType)?.placeholder ?? '';
+
+  // Reveal annotations one by one after analysis completes
+  useEffect(() => {
+    if (status !== 'complete' || !result) return;
+    setRevealedCount(0);
+    let count = 0;
+    const id = setInterval(() => {
+      count++;
+      setRevealedCount(count);
+      if (count >= result.annotations.length) clearInterval(id);
+    }, 160);
+    return () => clearInterval(id);
+  }, [status, result]);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!inputText.trim() || inputText.trim().length < 20) return;
+    setStatus('analyzing');
+    setResult(null);
+    setSelectedAnnotation(null);
+    setError('');
+
+    // Announce to screen readers
+    if (liveRef.current) liveRef.current.textContent = 'Analysing your text. Please wait.';
+
+    try {
+      const data = await analyzeText(inputText, contentType);
+      setResult(data);
+      setStatus('complete');
+      if (liveRef.current) liveRef.current.textContent = `Analysis complete. Found ${data.annotations.length} issues.`;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Analysis failed';
+      setError(msg);
+      setStatus('error');
+      if (liveRef.current) liveRef.current.textContent = `Error: ${msg}`;
+    }
+  }, [inputText, contentType]);
+
+  const handleReset = () => {
+    setStatus('idle');
+    setResult(null);
+    setSelectedAnnotation(null);
+    setError('');
+    setInputText('');
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  };
+
+  const charCount = inputText.length;
+  const charMax   = 5000;
+
+  return (
+    <div className="studio-page">
+      {/* ARIA live region */}
+      <div ref={liveRef} aria-live="polite" aria-atomic="true" className="sr-only" />
+
+      {/* Header */}
+      <header className="studio-header">
+        <div className="studio-brand">
+          <span className="studio-logo" aria-hidden="true">✦</span>
+          <span>AI Feedback Studio</span>
+        </div>
+        <p className="studio-tagline">Paste any text — get structured, actionable feedback in seconds</p>
+      </header>
+
+      {/* Content type selector */}
+      <nav className="content-type-nav" aria-label="Content type">
+        {CONTENT_TYPES.map(ct => (
+          <button
+            key={ct.value}
+            className={`content-type-btn ${contentType === ct.value ? 'active' : ''}`}
+            onClick={() => { setContentType(ct.value); if (status === 'complete') handleReset(); }}
+            aria-pressed={contentType === ct.value}
+            disabled={status === 'analyzing'}
+          >
+            <span aria-hidden="true">{ct.emoji}</span>
+            <span>{ct.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* Main two-panel layout */}
+      <main className="studio-layout" id="main-content">
+
+        {/* Left panel — input / annotated text */}
+        <section className="text-panel" aria-label="Text input and annotations">
+          <div className="panel-header">
+            <h1 className="panel-title">
+              {status === 'complete' ? 'Annotated Text' : 'Your Text'}
+            </h1>
+            <div className="panel-actions">
+              {status === 'idle' && (
+                <button
+                  className="sample-btn"
+                  onClick={() => setInputText(SAMPLE_TEXT[contentType])}
+                  aria-label="Load sample text"
+                >
+                  Load sample
+                </button>
+              )}
+              {status === 'complete' && (
+                <button className="reset-btn" onClick={handleReset} aria-label="Start over with new text">
+                  ↺ Start over
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="text-area-wrap">
+            <AnimatePresence mode="wait">
+              {status === 'analyzing' && (
+                <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <SkeletonText />
+                </motion.div>
+              )}
+
+              {status === 'complete' && result && (
+                <motion.div key="annotated" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <AnnotatedText
+                    text={inputText}
+                    annotations={result.annotations}
+                    selectedId={selectedAnnotation?.id ?? null}
+                    revealedCount={revealedCount}
+                    onSelect={setSelectedAnnotation}
+                  />
+                  {revealedCount < result.annotations.length && (
+                    <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="pulse-dot" aria-hidden="true" />
+                      <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+                        Finding issues… {revealedCount} / {result.annotations.length}
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {(status === 'idle' || status === 'error') && (
+                <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <textarea
+                    ref={textareaRef}
+                    className="text-input"
+                    placeholder={currentPlaceholder}
+                    value={inputText}
+                    onChange={e => setInputText(e.target.value)}
+                    aria-label="Text to analyse"
+                    aria-describedby="char-count"
+                    maxLength={charMax}
+                    autoFocus
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Footer */}
+          <div className="panel-footer">
+            {status === 'idle' || status === 'error' ? (
+              <>
+                <span id="char-count" style={{ fontSize: '0.78rem', color: charCount > charMax * 0.9 ? '#d97706' : '#9ca3af' }}>
+                  {charCount.toLocaleString()} / {charMax.toLocaleString()}
+                </span>
+                <button
+                  className="analyze-btn"
+                  onClick={handleAnalyze}
+                  disabled={inputText.trim().length < 20}
+                  aria-label="Analyse text"
+                >
+                  Analyse →
+                </button>
+              </>
+            ) : status === 'complete' && result ? (
+              <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+                Click any highlighted passage to see feedback
+              </span>
+            ) : null}
+          </div>
+
+          {error && (
+            <div className="error-banner" role="alert">
+              ⚠ {error}
+            </div>
+          )}
+        </section>
+
+        {/* Right panel — feedback */}
+        <aside className="feedback-panel-wrap" aria-label="Feedback panel">
+          <FeedbackPanel
+            result={result}
+            selectedAnnotation={selectedAnnotation}
+            onSelect={setSelectedAnnotation}
+          />
+        </aside>
+      </main>
+    </div>
+  );
+}
