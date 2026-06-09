@@ -14,3 +14,17 @@ export async function analyzeText(text: string, contentType: ContentType): Promi
   }
   return res.json() as Promise<AnalysisResult>;
 }
+
+export async function rewriteText(text: string, contentType: ContentType): Promise<string> {
+  const res = await fetch(`${BASE}/rewrite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, contentType }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText })) as { error?: string };
+    throw new Error(err.error ?? 'Rewrite failed');
+  }
+  const data = await res.json() as { improvedText: string };
+  return data.improvedText;
+}

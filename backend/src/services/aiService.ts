@@ -115,6 +115,53 @@ function mockAnalysis(text: string): AnalysisResult {
   };
 }
 
+const REWRITE_PROMPT = (text: string, contentType: ContentType) =>
+  `You are an expert writing coach specialising in ${CONTENT_LABELS[contentType]}. Rewrite the following text to fix all clarity, tone, word choice, conciseness, and grammar issues. Preserve the original meaning, intent, and approximate length. Return ONLY the rewritten text — no explanation, no preamble, no markdown.
+
+Input text:
+${text}`;
+
+function mockRewrite(text: string): string {
+  return text
+    .replace(/\bin order to\b/g, 'to')
+    .replace(/\bdue to the fact that\b/gi, 'because')
+    .replace(/\bat your earliest convenience\b/gi, 'soon')
+    .replace(/\bI am writing to you in order to\b/gi, "I'm writing to")
+    .replace(/\bI wanted to touch base and get a status update\b/gi, "I'm checking in for a status update")
+    .replace(/\bAs per our previous discussion\b/gi, 'As we discussed')
+    .replace(/\bI was under the impression that\b/gi, 'I understood that')
+    .replace(/\bI would really appreciate it if you could provide me with\b/gi, "I'd appreciate")
+    .replace(/\bPlease do not hesitate to reach out to me\b/gi, 'Please reach out')
+    .replace(/\bI look forward to hearing from you\b/gi, 'Looking forward to your reply')
+    .replace(/\bhas the ability to\b/gi, 'can')
+    .replace(/\butilize\b/g, 'use')
+    .replace(/\butilised\b/g, 'used')
+    .replace(/\bleveraging\b/gi, 'using')
+    .replace(/\boptimise\b/g, 'improve')
+    .replace(/\bcomprehensive\b/gi, 'complete')
+    .replace(/\bcommence\b/gi, 'start')
+    .trim();
+}
+
+export async function rewriteText(text: string, contentType: ContentType): Promise<string> {
+  if (!process.env.GROQ_API_KEY) {
+    await new Promise(r => setTimeout(r, 2000));
+    return mockRewrite(text);
+  }
+
+  const res = await groqFetch({
+    model: 'llama-3.1-8b-instant',
+    messages: [{ role: 'user', content: REWRITE_PROMPT(text, contentType) }],
+    temperature: 0.4,
+  });
+
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+  const content = data.choices[0]?.message?.content;
+  if (!content) throw new Error('No content from Groq');
+  return content.trim();
+}
+
 export async function analyzeText(text: string, contentType: ContentType): Promise<AnalysisResult> {
   if (!process.env.GROQ_API_KEY) {
     await new Promise(r => setTimeout(r, 1800));

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { analyzeRouter } from './routes/analyze';
+import { rewriteRouter } from './routes/rewrite';
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const PORT = process.env.PORT ?? 3002;
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/analyze', analyzeRouter);
+app.use('/api/rewrite', rewriteRouter);
 
 app.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT}`);

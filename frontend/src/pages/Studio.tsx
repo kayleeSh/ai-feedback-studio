@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyzeText } from '../api/client';
+import { analyzeText, rewriteText } from '../api/client';
 import { Annotation, AnalysisResult, ContentType, StudioStatus } from '../types';
 import { AnnotatedText } from '../components/AnnotatedText';
 import { FeedbackPanel } from '../components/FeedbackPanel';
+import { EnhancedPanel } from '../components/EnhancedPanel';
 import { SkeletonText } from '../components/SkeletonText';
 
 const CONTENT_TYPES: { value: ContentType; label: string; emoji: string; placeholder: string }[] = [
@@ -57,6 +58,8 @@ export default function Studio() {
   const [revealedCount, setRevealedCount]           = useState(0);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
   const [error, setError]             = useState('');
+  const [rewriteStatus, setRewriteStatus] = useState<'idle' | 'loading' | 'complete' | 'error'>('idle');
+  const [improvedText, setImprovedText]   = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const liveRef     = useRef<HTMLDivElement>(null);
 
@@ -81,9 +84,16 @@ export default function Studio() {
     setResult(null);
     setSelectedAnnotation(null);
     setError('');
+    setRewriteStatus('loading');
+    setImprovedText(null);
 
     // Announce to screen readers
     if (liveRef.current) liveRef.current.textContent = 'Analysing your text. Please wait.';
+
+    // Fire rewrite in parallel — don't block analysis on it
+    rewriteText(inputText, contentType)
+      .then(text => { setImprovedText(text); setRewriteStatus('complete'); })
+      .catch(() => setRewriteStatus('error'));
 
     try {
       const data = await analyzeText(inputText, contentType);
@@ -94,6 +104,7 @@ export default function Studio() {
       const msg = err instanceof Error ? err.message : 'Analysis failed';
       setError(msg);
       setStatus('error');
+      setRewriteStatus('idle');
       if (liveRef.current) liveRef.current.textContent = `Error: ${msg}`;
     }
   }, [inputText, contentType]);
@@ -104,6 +115,8 @@ export default function Studio() {
     setSelectedAnnotation(null);
     setError('');
     setInputText('');
+    setRewriteStatus('idle');
+    setImprovedText(null);
     setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
@@ -140,7 +153,7 @@ export default function Studio() {
         ))}
       </nav>
 
-      {/* Main two-panel layout */}
+      {/* Main layout — two or three columns */}
       <main className="studio-layout" id="main-content">
 
         {/* Left panel — input / annotated text */}
@@ -243,7 +256,7 @@ export default function Studio() {
           )}
         </section>
 
-        {/* Right panel — feedback */}
+        {/* Middle panel — feedback */}
         <aside className="feedback-panel-wrap" aria-label="Feedback panel">
           <FeedbackPanel
             result={result}
@@ -251,6 +264,26 @@ export default function Studio() {
             onSelect={setSelectedAnnotation}
           />
         </aside>
+
+        {/* Right panel — improved version, slides in after analysis */}
+        <AnimatePresence>
+          {status === 'complete' && (
+            <motion.aside
+              className="enhanced-panel-wrap"
+              aria-label="Improved version"
+              initial={{ width: 0 }}
+              animate={{ width: 320 }}
+              exit={{ width: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              <EnhancedPanel
+                improvedText={improvedText}
+                isLoading={rewriteStatus === 'loading'}
+                hasError={rewriteStatus === 'error'}
+              />
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
