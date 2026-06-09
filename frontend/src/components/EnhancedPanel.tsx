@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SkeletonText } from './SkeletonText';
+import { Tooltip } from './Tooltip';
 
 interface Props {
   improvedText: string | null;
@@ -29,25 +30,36 @@ export function EnhancedPanel({ improvedText, isLoading, hasError }: Props) {
       }}>
         <h2 className="panel-title" style={{ margin: 0 }}>Improved Version</h2>
         {improvedText && (
-          <button
-            onClick={handleCopy}
-            aria-label="Copy improved text to clipboard"
-            style={{
-              background: 'none',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              padding: '4px 12px',
-              fontSize: '0.78rem',
-              color: '#4f46e5',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              transition: 'all 0.12s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eef2ff'; (e.currentTarget as HTMLElement).style.borderColor = '#c7d2fe'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#e5e7eb'; }}
-          >
-            {copied ? '✓ Copied' : 'Copy'}
-          </button>
+          <Tooltip text={copied ? 'Copied!' : 'Copy'}>
+            <button
+              onClick={handleCopy}
+              aria-label="Copy improved text to clipboard"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 6,
+                borderRadius: 6,
+                cursor: 'pointer',
+                color: copied ? '#059669' : '#d1d5db',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => { if (!copied) (e.currentTarget as HTMLElement).style.color = '#9ca3af'; }}
+              onMouseLeave={e => { if (!copied) (e.currentTarget as HTMLElement).style.color = '#d1d5db'; }}
+            >
+              {copied ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="14" height="14" x="8" y="8" rx="2" />
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+              )}
+            </button>
+          </Tooltip>
         )}
       </div>
 

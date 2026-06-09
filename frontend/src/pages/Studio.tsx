@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { analyzeText, rewriteText } from '../api/client';
 import { Annotation, AnalysisResult, ContentType, StudioStatus } from '../types';
@@ -6,14 +6,56 @@ import { AnnotatedText } from '../components/AnnotatedText';
 import { FeedbackPanel } from '../components/FeedbackPanel';
 import { EnhancedPanel } from '../components/EnhancedPanel';
 import { SkeletonText } from '../components/SkeletonText';
+import { Tooltip } from '../components/Tooltip';
 
-const CONTENT_TYPES: { value: ContentType; label: string; emoji: string; placeholder: string }[] = [
-  { value: 'email',        label: 'Email',         emoji: '✉️', placeholder: 'Paste your email draft here…' },
-  { value: 'product_copy', label: 'Product Copy',  emoji: '🚀', placeholder: 'Paste your product description, landing page copy, or marketing text here…' },
-  { value: 'resume',       label: 'Resume',        emoji: '📄', placeholder: 'Paste a section of your resume or cover letter here…' },
-  { value: 'ux_copy',      label: 'UX Copy',       emoji: '🖱️', placeholder: 'Paste your UI text, button labels, error messages, or onboarding copy here…' },
-  { value: 'essay',        label: 'Essay',         emoji: '📝', placeholder: 'Paste your essay, article, or long-form writing here…' },
-  { value: 'general',      label: 'General',       emoji: '💬', placeholder: 'Paste any text you want feedback on here…' },
+const CONTENT_TYPE_ICONS: Record<ContentType, ReactNode> = {
+  email: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  ),
+  product_copy: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <circle cx="7" cy="7" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  resume: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
+    </svg>
+  ),
+  ux_copy: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M2 9h20" />
+      <circle cx="5.5" cy="6.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="6.5" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  essay: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+    </svg>
+  ),
+  general: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    </svg>
+  ),
+};
+
+const CONTENT_TYPES: { value: ContentType; label: string; placeholder: string }[] = [
+  { value: 'email',        label: 'Email',         placeholder: 'Paste your email draft here…' },
+  { value: 'product_copy', label: 'Product Copy',  placeholder: 'Paste your product description, landing page copy, or marketing text here…' },
+  { value: 'resume',       label: 'Resume',        placeholder: 'Paste a section of your resume or cover letter here…' },
+  { value: 'ux_copy',      label: 'UX Copy',       placeholder: 'Paste your UI text, button labels, error messages, or onboarding copy here…' },
+  { value: 'essay',        label: 'Essay',         placeholder: 'Paste your essay, article, or long-form writing here…' },
+  { value: 'general',      label: 'General',       placeholder: 'Paste any text you want feedback on here…' },
 ];
 
 const SAMPLE_TEXT: Record<ContentType, string> = {
@@ -147,7 +189,7 @@ export default function Studio() {
             aria-pressed={contentType === ct.value}
             disabled={status === 'analyzing'}
           >
-            <span aria-hidden="true">{ct.emoji}</span>
+            <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center' }}>{CONTENT_TYPE_ICONS[ct.value]}</span>
             <span>{ct.label}</span>
           </button>
         ))}
@@ -173,9 +215,30 @@ export default function Studio() {
                 </button>
               )}
               {status === 'complete' && (
-                <button className="reset-btn" onClick={handleReset} aria-label="Start over with new text">
-                  ↺ Start over
-                </button>
+                <Tooltip text="Start over">
+                  <button
+                    onClick={handleReset}
+                    aria-label="Start over with new text"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 6,
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      color: '#d1d5db',
+                      display: 'flex',
+                      alignItems: 'center',
+                      transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#9ca3af'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#d1d5db'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  </button>
+                </Tooltip>
               )}
             </div>
           </div>
