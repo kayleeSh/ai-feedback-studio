@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Annotation, AnalysisResult, AnnotationSeverity } from '../types';
+import { Annotation, AnalysisResult, AnnotationCategory, AnnotationSeverity } from '../types';
 import { CategoryTag } from './CategoryTag';
 import { ConfidenceBar } from './ConfidenceBar';
 import { ScoreCircle } from './ScoreCircle';
@@ -8,7 +8,18 @@ import { ScoreCircle } from './ScoreCircle';
 const SEVERITY_DOT: Record<AnnotationSeverity, string> = {
   critical:   '#dc2626',
   warning:    '#d97706',
-  suggestion: '#4f46e5',
+  suggestion: '#d97706',
+};
+
+const CATEGORY_ORDER: AnnotationCategory[] = ['clarity', 'tone', 'structure', 'word_choice', 'conciseness', 'grammar'];
+
+const CATEGORY_LABEL: Record<AnnotationCategory, string> = {
+  clarity:     'Clarity',
+  tone:        'Tone',
+  structure:   'Structure',
+  word_choice: 'Word Choice',
+  conciseness: 'Conciseness',
+  grammar:     'Grammar',
 };
 
 interface AnnotationListItemProps {
@@ -17,40 +28,53 @@ interface AnnotationListItemProps {
   onClick: () => void;
 }
 
-function AnnotationListItem({ annotation, isSelected, onClick }: AnnotationListItemProps) {
+function AnnotationRow({ annotation, isSelected, onClick }: AnnotationListItemProps) {
+  const [hovered, setHovered] = useState(false);
+  const active = isSelected || hovered;
+
   return (
     <button
       onClick={onClick}
       aria-pressed={isSelected}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         width: '100%',
         textAlign: 'left',
-        background: isSelected ? '#f8f9fb' : '#fff',
-        border: `1px solid ${isSelected ? '#d1d5db' : '#e5e7eb'}`,
-        borderLeft: `3px solid ${SEVERITY_DOT[annotation.severity]}`,
-        borderRadius: 8,
-        padding: '10px 12px',
+        background: active ? 'rgba(0,0,0,0.04)' : 'transparent',
+        border: 'none',
+        padding: '6px 8px',
+        borderRadius: 5,
         cursor: 'pointer',
-        transition: 'all 0.12s',
+        transition: 'background 0.12s',
         fontFamily: 'inherit',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
       }}
-      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
-      onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#fff'; }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 9, alignItems: 'center', minWidth: 0 }}>
         <span style={{
-          width: 8, height: 8, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+          width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
           background: SEVERITY_DOT[annotation.severity],
         }} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#111827', marginBottom: 2 }}>
-            {annotation.title}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {annotation.text}
-          </div>
-        </div>
+        <span style={{
+          fontSize: '0.82rem', color: '#374151',
+          fontWeight: isSelected ? 600 : 400,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {annotation.title}
+        </span>
       </div>
+      <svg
+        width="12" height="12" viewBox="0 0 24 24" fill="none"
+        stroke={active ? '#d97706' : '#d1d5db'}
+        strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        style={{ flexShrink: 0, transition: 'stroke 0.12s' }}
+      >
+        <path d="m9 18 6-6-6-6" />
+      </svg>
     </button>
   );
 }
@@ -86,7 +110,7 @@ function DetailView({ annotation, index, total, onPrev, onNext, onBack }: Detail
         <button
           onClick={onBack}
           aria-label="Back to all annotations"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#4f46e5', fontFamily: 'inherit', fontWeight: 500, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#d97706', fontFamily: 'inherit', fontWeight: 500, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           ← Overview
         </button>
@@ -195,20 +219,50 @@ function Overview({ result, selectedId, onSelect }: OverviewProps) {
         </div>
       </div>
 
-      {/* Annotation list */}
-      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9ca3af', marginBottom: 8 }}>
-        {result.annotations.length} issue{result.annotations.length !== 1 ? 's' : ''} found
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} role="list" aria-label="Annotation list">
-        {result.annotations.map(ann => (
-          <div key={ann.id} role="listitem">
-            <AnnotationListItem
-              annotation={ann}
-              isSelected={ann.id === selectedId}
-              onClick={() => onSelect(ann)}
-            />
-          </div>
-        ))}
+      {/* Grouped annotation list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} aria-label="Issues by category">
+        {CATEGORY_ORDER
+          .map(cat => ({ cat, items: result.annotations.filter(a => a.category === cat) }))
+          .filter(g => g.items.length > 0)
+          .map(({ cat, items }) => (
+              <div
+                key={cat}
+                style={{
+                  background: 'rgba(255,255,255,0.65)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  borderRadius: 10,
+                  padding: '10px 10px 6px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{
+                    fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.08em', flexShrink: 0, color: '#18181b',
+                  }}>
+                    {CATEGORY_LABEL[cat]}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: '#f0f0f0' }} />
+                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#9ca3af', flexShrink: 0 }}>
+                    {items.length}
+                  </span>
+                </div>
+                <div role="list">
+                  {items.map(ann => (
+                    <div key={ann.id} role="listitem">
+                      <AnnotationRow
+                        annotation={ann}
+                        isSelected={ann.id === selectedId}
+                        onClick={() => onSelect(ann)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          )
+        }
       </div>
     </motion.div>
   );

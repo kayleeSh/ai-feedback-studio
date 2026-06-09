@@ -12,7 +12,7 @@ const CATEGORY_LABEL: Record<AnnotationCategory, string> = {
 const SEVERITY_CONFIG: Record<AnnotationSeverity, { label: string; color: string; bg: string; border: string }> = {
   critical:   { label: 'Critical',    color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
   warning:    { label: 'Warning',     color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-  suggestion: { label: 'Suggestion',  color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe' },
+  suggestion: { label: 'Suggestion',  color: '#d97706', bg: '#fef3c7', border: '#fcd34d' },
 };
 
 interface Props {

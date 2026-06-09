@@ -4,13 +4,13 @@ import { Annotation, AnnotationSeverity } from '../types';
 const UNDERLINE_COLOR: Record<AnnotationSeverity, string> = {
   critical:   '#dc2626',
   warning:    '#d97706',
-  suggestion: '#4f46e5',
+  suggestion: '#d97706',
 };
 
 const HOVER_BG: Record<AnnotationSeverity, string> = {
   critical:   'rgba(220,38,38,0.08)',
   warning:    'rgba(217,119,6,0.08)',
-  suggestion: 'rgba(79,70,229,0.08)',
+  suggestion: 'rgba(217,119,6,0.08)',
 };
 
 interface Segment {

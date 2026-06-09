@@ -291,25 +291,26 @@ export default function Studio() {
 
           {/* Footer */}
           <div className="panel-footer">
-            {status === 'idle' || status === 'error' ? (
-              <>
-                <span id="char-count" style={{ fontSize: '0.78rem', color: charCount > charMax * 0.9 ? '#d97706' : '#9ca3af' }}>
-                  {charCount.toLocaleString()} / {charMax.toLocaleString()}
-                </span>
-                <button
-                  className="analyze-btn"
-                  onClick={handleAnalyze}
-                  disabled={inputText.trim().length < 20}
-                  aria-label="Analyse text"
-                >
-                  Analyse →
-                </button>
-              </>
-            ) : status === 'complete' && result ? (
+            {status === 'complete' && result ? (
               <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
                 Click any highlighted passage to see feedback
               </span>
-            ) : null}
+            ) : (
+              <>
+                <span id="char-count" style={{ fontSize: '0.78rem', color: charCount > charMax * 0.9 ? '#d97706' : '#9ca3af' }}>
+                  {status === 'analyzing' ? '' : `${charCount.toLocaleString()} / ${charMax.toLocaleString()}`}
+                </span>
+                <button
+                  className={`analyze-btn${status === 'analyzing' ? ' analyzing' : ''}`}
+                  onClick={handleAnalyze}
+                  disabled={status === 'analyzing' || inputText.trim().length < 20}
+                  aria-label="Analyse text"
+                >
+                  <span className="analyze-icon" aria-hidden="true">✦</span>
+                  {status === 'analyzing' ? 'Analysing…' : 'Analyse'}
+                </button>
+              </>
+            )}
           </div>
 
           {error && (
