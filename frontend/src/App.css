@@ -281,6 +281,21 @@ body {
 .annotation-mark.severity-warning:hover   { background: rgba(217,119,6,0.08); }
 .annotation-mark.severity-suggestion:hover { background: rgba(217,119,6,0.08); }
 
+/* ── Custom scrollbars ───────────────────────────── */
+.panel-scroll,
+.text-area-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb transparent;
+}
+.panel-scroll::-webkit-scrollbar,
+.text-area-wrap::-webkit-scrollbar { width: 4px; }
+.panel-scroll::-webkit-scrollbar-track,
+.text-area-wrap::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb,
+.text-area-wrap::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 100px; }
+.panel-scroll::-webkit-scrollbar-thumb:hover,
+.text-area-wrap::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+
 /* ── Skeleton shimmer ────────────────────────────── */
 @keyframes skeleton-shimmer {
   0%   { background-position: 200% 0; }

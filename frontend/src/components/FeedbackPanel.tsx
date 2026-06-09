@@ -25,19 +25,21 @@ const CATEGORY_LABEL: Record<AnnotationCategory, string> = {
 interface AnnotationListItemProps {
   annotation: Annotation;
   isSelected: boolean;
+  isHovered: boolean;
   onClick: () => void;
+  onHover: (ann: Annotation | null) => void;
 }
 
-function AnnotationRow({ annotation, isSelected, onClick }: AnnotationListItemProps) {
+function AnnotationRow({ annotation, isSelected, isHovered, onClick, onHover }: AnnotationListItemProps) {
   const [hovered, setHovered] = useState(false);
-  const active = isSelected || hovered;
+  const active = isSelected || hovered || isHovered;
 
   return (
     <button
       onClick={onClick}
       aria-pressed={isSelected}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); onHover(annotation); }}
+      onMouseLeave={() => { setHovered(false); onHover(null); }}
       style={{
         width: '100%',
         textAlign: 'left',
@@ -174,10 +176,12 @@ function DetailView({ annotation, index, total, onPrev, onNext, onBack }: Detail
 interface OverviewProps {
   result: AnalysisResult;
   selectedId: string | null;
+  hoveredId: string | null;
   onSelect: (ann: Annotation) => void;
+  onHover: (ann: Annotation | null) => void;
 }
 
-function Overview({ result, selectedId, onSelect }: OverviewProps) {
+function Overview({ result, selectedId, hoveredId, onSelect, onHover }: OverviewProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -186,34 +190,23 @@ function Overview({ result, selectedId, onSelect }: OverviewProps) {
       transition={{ duration: 0.15 }}
     >
       {/* Score */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20, padding: '16px', background: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+      <div style={{ marginBottom: 20 }}>
         <ScoreCircle score={result.overallScore} />
-        <div>
-          <p style={{ fontSize: '0.85rem', color: '#374151', lineHeight: 1.65, margin: 0 }}>
-            {result.summary}
-          </p>
-        </div>
-      </div>
-
-      {/* Strengths & Focus */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#059669', marginBottom: 6 }}>
-            Strengths
-          </div>
+        <div style={{ height: 1, background: '#f0f0f0', margin: '12px 0' }} />
+        <p style={{ fontSize: '0.85rem', color: '#374151', lineHeight: 1.65, margin: '0 0 12px' }}>
+          {result.summary}
+        </p>
+        <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10 }}>
           {result.strengths.map((s, i) => (
-            <div key={i} style={{ fontSize: '0.78rem', color: '#14532d', lineHeight: 1.5, marginBottom: 3 }}>
-              › {s}
+            <div key={`s-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 5 }}>
+              <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700, flexShrink: 0, lineHeight: 1.5 }}>+</span>
+              <span style={{ fontSize: '0.8rem', color: '#374151', lineHeight: 1.5 }}>{s}</span>
             </div>
           ))}
-        </div>
-        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 12px' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#dc2626', marginBottom: 6 }}>
-            Focus areas
-          </div>
           {result.focusAreas.map((f, i) => (
-            <div key={i} style={{ fontSize: '0.78rem', color: '#7f1d1d', lineHeight: 1.5, marginBottom: 3 }}>
-              › {f}
+            <div key={`f-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 5 }}>
+              <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 700, flexShrink: 0, lineHeight: 1.5 }}>–</span>
+              <span style={{ fontSize: '0.8rem', color: '#374151', lineHeight: 1.5 }}>{f}</span>
             </div>
           ))}
         </div>
@@ -254,7 +247,9 @@ function Overview({ result, selectedId, onSelect }: OverviewProps) {
                       <AnnotationRow
                         annotation={ann}
                         isSelected={ann.id === selectedId}
+                        isHovered={ann.id === hoveredId}
                         onClick={() => onSelect(ann)}
+                        onHover={onHover}
                       />
                     </div>
                   ))}
@@ -268,20 +263,51 @@ function Overview({ result, selectedId, onSelect }: OverviewProps) {
   );
 }
 
+const ghostLine = (w = '100%', h = 11) => ({
+  height: h, width: w, borderRadius: 3,
+  background: 'linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%)',
+  backgroundSize: '200% 100%',
+  animation: 'skeleton-shimmer 1.8s ease-in-out infinite',
+  marginBottom: 7,
+} as React.CSSProperties);
+
 interface Props {
   result: AnalysisResult | null;
   selectedAnnotation: Annotation | null;
+  hoveredId: string | null;
   onSelect: (ann: Annotation | null) => void;
+  onHover: (ann: Annotation | null) => void;
 }
 
-export function FeedbackPanel({ result, selectedAnnotation, onSelect }: Props) {
+export function FeedbackPanel({ result, selectedAnnotation, hoveredId, onSelect, onHover }: Props) {
   if (!result) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✦</div>
-        <p style={{ fontSize: '0.875rem', lineHeight: 1.6 }}>
-          Analyse your text to receive<br />inline feedback and suggestions
-        </p>
+      <div style={{ padding: '24px 20px', height: '100%', overflowY: 'auto', opacity: 0.5 }}>
+        <div style={{ height: 32, width: 100, borderRadius: 4, marginBottom: 6, background: 'linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%)', backgroundSize: '200% 100%', animation: 'skeleton-shimmer 1.8s ease-in-out infinite' }} />
+        <div style={ghostLine('55%', 10)} />
+        <div style={{ height: 1, background: '#f0f0f0', margin: '12px 0' }} />
+        <div style={ghostLine()} />
+        <div style={ghostLine('88%')} />
+        <div style={ghostLine('65%')} />
+        <div style={{ height: 1, background: '#f3f4f6', margin: '10px 0 12px' }} />
+        <div style={ghostLine('72%', 9)} />
+        <div style={ghostLine('60%', 9)} />
+        <div style={ghostLine('68%', 9)} />
+        <div style={{ marginTop: 20, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10, padding: '10px 10px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ height: 8, width: 52, borderRadius: 3, background: '#f0f0f0' }} />
+            <div style={{ flex: 1, height: 1, background: '#f3f4f6' }} />
+          </div>
+          <div style={ghostLine('80%', 9)} />
+          <div style={ghostLine('55%', 9)} />
+        </div>
+        <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 10, padding: '10px 10px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ height: 8, width: 40, borderRadius: 3, background: '#f0f0f0' }} />
+            <div style={{ flex: 1, height: 1, background: '#f3f4f6' }} />
+          </div>
+          <div style={ghostLine('75%', 9)} />
+        </div>
       </div>
     );
   }
@@ -296,7 +322,7 @@ export function FeedbackPanel({ result, selectedAnnotation, onSelect }: Props) {
   };
 
   return (
-    <div style={{ padding: '24px 20px', height: '100%', overflowY: 'auto' }}>
+    <div className="panel-scroll" style={{ padding: '24px 20px', height: '100%', overflowY: 'auto' }}>
       <AnimatePresence mode="wait">
         {selectedAnnotation && selectedIndex !== -1 ? (
           <DetailView
@@ -313,7 +339,9 @@ export function FeedbackPanel({ result, selectedAnnotation, onSelect }: Props) {
             key="overview"
             result={result}
             selectedId={selectedAnnotation?.id ?? null}
+            hoveredId={hoveredId}
             onSelect={onSelect}
+            onHover={onHover}
           />
         )}
       </AnimatePresence>

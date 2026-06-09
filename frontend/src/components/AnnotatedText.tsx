@@ -54,11 +54,13 @@ interface Props {
   text: string;
   annotations: Annotation[];
   selectedId: string | null;
+  hoveredId: string | null;
   revealedCount: number;
   onSelect: (ann: Annotation | null) => void;
+  onHover: (ann: Annotation | null) => void;
 }
 
-export function AnnotatedText({ text, annotations, selectedId, revealedCount, onSelect }: Props) {
+export function AnnotatedText({ text, annotations, selectedId, hoveredId, revealedCount, onSelect, onHover }: Props) {
   const visibleAnnotations = annotations.slice(0, revealedCount);
   const segments = useMemo(
     () => buildSegments(text, visibleAnnotations),
@@ -76,6 +78,7 @@ export function AnnotatedText({ text, annotations, selectedId, revealedCount, on
         }
         const ann = seg.annotation!;
         const isSelected = ann.id === selectedId;
+        const isHovered = ann.id === hoveredId && !isSelected;
         const color = UNDERLINE_COLOR[ann.severity];
 
         return (
@@ -86,6 +89,8 @@ export function AnnotatedText({ text, annotations, selectedId, revealedCount, on
             aria-pressed={isSelected}
             aria-label={`${ann.severity}: ${ann.title}. Press Enter for details.`}
             onClick={() => onSelect(isSelected ? null : ann)}
+            onMouseEnter={() => onHover(ann)}
+            onMouseLeave={() => onHover(null)}
             onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -93,14 +98,14 @@ export function AnnotatedText({ text, annotations, selectedId, revealedCount, on
               }
             }}
             style={{
-              background: isSelected ? HOVER_BG[ann.severity] : 'transparent',
+              background: isSelected ? HOVER_BG[ann.severity] : isHovered ? HOVER_BG[ann.severity].replace('0.08', '0.05') : 'transparent',
               color: 'inherit',
-              borderBottom: `2px ${isSelected ? 'solid' : 'dashed'} ${color}`,
+              borderBottom: `2px ${isSelected || isHovered ? 'solid' : 'dashed'} ${color}`,
               borderRadius: 2,
               cursor: 'pointer',
               outline: 'none',
               padding: '1px 0',
-              transition: 'background 0.15s',
+              transition: 'background 0.15s, border-bottom 0.15s',
             }}
             className={`annotation-mark severity-${ann.severity}`}
           >

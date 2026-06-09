@@ -99,6 +99,7 @@ export default function Studio() {
   const [result, setResult]           = useState<AnalysisResult | null>(null);
   const [revealedCount, setRevealedCount]           = useState(0);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
+  const [hoveredAnnotation, setHoveredAnnotation]   = useState<Annotation | null>(null);
   const [error, setError]             = useState('');
   const [rewriteStatus, setRewriteStatus] = useState<'idle' | 'loading' | 'complete' | 'error'>('idle');
   const [improvedText, setImprovedText]   = useState<string | null>(null);
@@ -176,7 +177,7 @@ export default function Studio() {
           <span className="studio-logo" aria-hidden="true">✦</span>
           <span>AI Feedback Studio</span>
         </div>
-        <p className="studio-tagline">Paste any text — get structured, actionable feedback in seconds</p>
+        <p className="studio-tagline">The editor that reads between the lines.</p>
       </header>
 
       {/* Content type selector */}
@@ -257,8 +258,10 @@ export default function Studio() {
                     text={inputText}
                     annotations={result.annotations}
                     selectedId={selectedAnnotation?.id ?? null}
+                    hoveredId={hoveredAnnotation?.id ?? null}
                     revealedCount={revealedCount}
                     onSelect={setSelectedAnnotation}
+                    onHover={setHoveredAnnotation}
                   />
                   {revealedCount < result.annotations.length && (
                     <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -325,7 +328,9 @@ export default function Studio() {
           <FeedbackPanel
             result={result}
             selectedAnnotation={selectedAnnotation}
+            hoveredId={hoveredAnnotation?.id ?? null}
             onSelect={setSelectedAnnotation}
+            onHover={setHoveredAnnotation}
           />
         </aside>
 

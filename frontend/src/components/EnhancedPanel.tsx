@@ -63,7 +63,7 @@ export function EnhancedPanel({ improvedText, isLoading, hasError }: Props) {
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', scrollbarWidth: 'thin' }}>
+      <div className="panel-scroll" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
         {isLoading && <SkeletonText />}
 
         {hasError && !isLoading && (
